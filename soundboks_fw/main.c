@@ -1,6 +1,6 @@
 #include "timer.h"
 
-typedef enum {
+typedef enum { //Test
     STATE_INIT,
     STATE_ACTIVE,
     STATE_PASSIVE,

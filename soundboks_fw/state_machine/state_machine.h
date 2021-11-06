@@ -10,6 +10,7 @@ typedef int (*state_callback_t)(void *arg);
 typedef struct {
     uint32_t id;
     state_callback_t clbk;
+    void * arg;
 } State_t, * State_tp;
 
 typedef struct {
@@ -24,6 +25,7 @@ typedef struct {
     Evt_que_tp que;
 } State_machine_t, * State_machine_tp;
 
+extern State_t mk_state(uint32_t id, state_callback_t clbk, void * arg);
 extern void execute(State_machine_tp);
 extern Trans_t mk_trans(Event_t, State_tp from, State_tp to);
 extern State_machine_t mk_stm(State_tp, size_t, Trans_tp, Evt_que_tp);

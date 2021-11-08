@@ -56,3 +56,4 @@ dkms.conf
 
 # build dir
 build/
+soundboks_fw/*.X

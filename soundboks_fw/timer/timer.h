@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifndef MAX_N_SOFT_TIMERS
 #define MAX_N_SOFT_TIMERS 5

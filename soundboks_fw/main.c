@@ -1,3 +1,5 @@
+#include "timer.h"
+
 #ifdef PIC32_MCU
 // DEVCFG2
 #pragma config FPLLIDIV = DIV_2         // PLL Input Divider (2x Divider)
@@ -26,11 +28,32 @@
 #pragma config CP = OFF                 // Code Protect (Protection Disabled)
 
 #include <xc.h>
+#include <sys/attribs.h>
 
-#define CLOCKS_PER_SEC 40000000 //Pfreq
+#define PFREQ 40000000
+
+#ifdef PIC32_USE_TMR_INT
+#define TMR_FREQ 1000
+#define CLOCKS_PER_SEC TMR_FREQ //Pfreq
+
+static uint32_t cclock = 0;
+inline uint32_t get_clock() {
+    return cclock;
+}
+
+void __ISR(_TIMER_3_VECTOR, IPL7SRS) T3Interrupt(void) {
+    ++cclock;
+    update_timers();
+ 
+    // Reset interrupt flag
+    IFS0bits.T3IF = 0;
+}
+#else 
+#define CLOCKS_PER_SEC PFREQ
 inline uint32_t get_clock() {
     return TMR2;
 }
+#endif
 
 #define LED1        LATDbits.LATD0
 #define LED2        LATDbits.LATD1
@@ -50,14 +73,6 @@ inline uint32_t get_clock() {
     return clock();
 }
 #endif //PIC32_MCU
-
-#include "timer.h"
-
-typedef enum { //Test
-    STATE_INIT,
-    STATE_ACTIVE,
-    STATE_PASSIVE,
-} main_state_t;
 
 int cb(void *ctx) {
 #ifdef PIC32_MCU
@@ -82,13 +97,6 @@ int main(void) {
     Timer_t * tmr;
 
 #ifdef PIC32_MCU
-    //Configure T2/3 timers into 32-bit counter mode
-    T2CONbits.T32 = 1;
-    T2CONbits.TCS = 0;
-    T2CONbits.TGATE = 0;
-    PR2 = (uint32_t)(-1);
-    
-    /*Configure tri-state registers*/
 //    TRISDbits.TRISD6 = 1;   //SW1 as input
 //    TRISDbits.TRISD7 = 1;   //SW2 as input
 //    TRISDbits.TRISD13 = 1;  //SW3 as input
@@ -99,6 +107,22 @@ int main(void) {
     LED1 = 0;
     LED2 = 0;
     
+    //Configure T2/3 timers into 32-bit counter mode, prescaler = 1:1
+    T2CONbits.T32 = 1;
+    T2CONbits.TCS = 0;
+    T2CONbits.TGATE = 0;
+    
+#ifdef PIC32_USE_TMR_INT
+    PR2 = PFREQ/TMR_FREQ; //1ms period
+    IFS0bits.T3IF = 0;
+    IPC3bits.T3IP = 0x7; 
+    IEC0bits.T3IE = 1; //Enable timer interrupt
+    INTCONbits.MVEC = 1; //Multivector mode
+    __builtin_enable_interrupts();
+#else
+    PR2 = (uint32_t)(-1);
+#endif    
+   
     T2CONbits.ON = 1;
 #else
     clock_t t1, t2;
@@ -113,7 +137,9 @@ int main(void) {
 #endif
     while(is_running(tmr)) {
         //Do stuff
+#if !defined(PIC32_USE_TMR_INT)
         update_timers();
+#endif
     }
 #ifndef PIC32_MCU
     t2 = clock();
@@ -123,3 +149,4 @@ int main(void) {
 
     return EXIT_SUCCESS;
 }
+

@@ -80,44 +80,68 @@ inline uint32_t get_clock() {
 
 typedef enum {
     STATE_INIT,
-    STATE_ON,
-    STATE_OFF
+    STATE_RED,
+    STATE_REDYELLOW,
+    STATE_GREEN,
+    STATE_YELLOW
 } main_state_t;
 
 #define EVENT_TMR 0x1UL
 
+static Event_t evt_buf[5] = {0};
+static Evt_que_t que;
 int tmr_evnt1(void * arg) {
-    Evt_que_tp que = (Evt_que_tp)arg;
-    return put_evt(que, EVENT_TMR);
+    return put_evt(&que, EVENT_TMR);
 }
 
 #ifdef PIC32_MCU
-int on_init(void * arg) {
-    LED1 = 0;
-    LED2 = 1;
-    return 0;
-}
-int on_active(void * arg) {
+int on_red(void * arg) {
     LED1 = 1;
     LED2 = 0;
+    LED3 = 0;
+    timer_start(TIME_SEC(5.0), false, tmr_evnt1, NULL);
     return 0;
 }
-int on_passive(void * arg) {
+int on_ryellow(void * arg) {
+    LED1 = 1;
+    LED2 = 1;
+    LED3 = 0;
+    timer_start(TIME_SEC(2.0), false, tmr_evnt1, NULL);
+    return 0;
+}
+int on_green(void * arg) {
+    LED1 = 0;
+    LED2 = 0;
+    LED3 = 1;
+    timer_start(TIME_SEC(5.0), false, tmr_evnt1, NULL);
+    return 0;
+}
+int on_yellow(void * arg) {
     LED1 = 0;
     LED2 = 1;
+    LED3 = 0;
+    timer_start(TIME_SEC(2.0), false, tmr_evnt1, NULL);
     return 0;
 }
 #else
-int on_init(void * arg) {
-    printf("Initial state!\n");
+int on_red(void * arg) {
+    printf("Red state!\n");
+    timer_start(TIME_SEC(5.0), false, tmr_evnt1, NULL);
     return 0;
 }
-int on_active(void * arg) {
-    printf("Active state!\n");
+int on_ryellow(void * arg) {
+    printf("Red-Yellow state!\n");
+    timer_start(TIME_SEC(2.0), false, tmr_evnt1, NULL);
     return 0;
 }
-int on_passive(void * arg) {
-    printf("Passive state!\n");
+int on_green(void * arg) {
+    printf("Green state!\n");
+    timer_start(TIME_SEC(5.0), false, tmr_evnt1, NULL);
+    return 0;
+}
+int on_yellow(void * arg) {
+    printf("Yellow state!\n");
+    timer_start(TIME_SEC(2.0), false, tmr_evnt1, NULL);
     return 0;
 }
 #endif
@@ -133,6 +157,7 @@ int main(void) {
     TRISDbits.TRISD2 = 0;   //LED3 as output
     LED1 = 0;
     LED2 = 0;
+    LED3 = 0;
     
     //Configure T2/3 timers into 32-bit counter mode, prescaler = 1:1
     T2CONbits.T32 = 1;
@@ -151,26 +176,23 @@ int main(void) {
 #endif    
     T2CONbits.ON = 1;
 #endif
+    que = mk_evt_que(5, evt_buf);
 
-    Event_t evt_buf[5] = {0};
-    Evt_que_t que = mk_evt_que(3, evt_buf);
-    Timer_t * tmr;
-
-    State_t states[5] = {
-        mk_state(STATE_INIT, on_init, NULL),
-        mk_state(STATE_ON, on_active, NULL),
-        mk_state(STATE_OFF, on_passive, NULL)
+    State_t states[4] = {
+        mk_state(STATE_RED, on_red, NULL),
+        mk_state(STATE_REDYELLOW, on_ryellow, NULL),
+        mk_state(STATE_GREEN, on_green, NULL),
+        mk_state(STATE_YELLOW, on_yellow, NULL)
     };
 
-    Trans_t trans[3] = {
-        mk_trans(EVENT_NONE, &states[0], &states[1]),
-        mk_trans(EVENT_TMR, &states[1], &states[2]),
-        mk_trans(EVENT_TMR, &states[2], &states[1])
-    };
-    State_machine_t stm = mk_stm(&states[0], 3, trans, &que);
+    Trans_t trans[4];
+    for(size_t i = 0; i < 3; ++i) {
+        trans[i] = mk_trans(EVENT_TMR, &states[i], &states[i+1]);
+    }
+    trans[3] = mk_trans(EVENT_TMR, &states[3], &states[0]);
+    State_machine_t stm = mk_stm(&states[0], 4, trans, &que);
 
-    tmr = timer_start(TIME_SEC(1.0), true, tmr_evnt1, &que);
-    while(is_running(tmr)) {
+    while(1) {
         execute(&stm);
 #ifdef PIC32_MCU
 #ifndef PIC32_USE_TMR_INT

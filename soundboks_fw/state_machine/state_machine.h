@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "events.h"
+#include "../events/events.h"
 
 typedef int (*state_callback_t)(void *arg);
 

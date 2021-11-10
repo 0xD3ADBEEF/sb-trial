@@ -14,7 +14,12 @@ inline bool is_full(Evt_que_tp que) {
     return que->cap == que->len;
 }
 inline Event_t get_head(Evt_que_tp que) {
-    return que->buf[que->rptr];
+    if(is_empty(que)){
+        return EVENT_NONE;
+    }
+    else {
+        return que->buf[que->rptr];
+    }
 }
 inline bool has_evt(Evt_que_tp que, Event_t evt) {
     return !is_empty(que) && evt == get_head(que);

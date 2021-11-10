@@ -91,19 +91,36 @@ int tmr_evnt1(void * arg) {
     return put_evt(que, EVENT_TMR);
 }
 
+#ifdef PIC32_MCU
+int on_init(void * arg) {
+    LED1 = 0;
+    LED2 = 1;
+    return 0;
+}
+int on_active(void * arg) {
+    LED1 = 1;
+    LED2 = 0;
+    return 0;
+}
+int on_passive(void * arg) {
+    LED1 = 0;
+    LED2 = 1;
+    return 0;
+}
+#else
 int on_init(void * arg) {
     printf("Initial state!\n");
     return 0;
 }
 int on_active(void * arg) {
     printf("Active state!\n");
-    // stop = true;
     return 0;
 }
 int on_passive(void * arg) {
     printf("Passive state!\n");
     return 0;
 }
+#endif
 
 int main(void) {
 #ifdef PIC32_MCU
@@ -135,11 +152,11 @@ int main(void) {
     T2CONbits.ON = 1;
 #endif
 
-    Event_t evt_buf[10] = {0};
-    Evt_que_t que = mk_evt_que(10, evt_buf);
+    Event_t evt_buf[5] = {0};
+    Evt_que_t que = mk_evt_que(3, evt_buf);
     Timer_t * tmr;
 
-    State_t states[3] = {
+    State_t states[5] = {
         mk_state(STATE_INIT, on_init, NULL),
         mk_state(STATE_ON, on_active, NULL),
         mk_state(STATE_OFF, on_passive, NULL)
